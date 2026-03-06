@@ -28,13 +28,14 @@ class Subscription(Base):
 
     status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus),
-        default=SubscriptionStatus.active
+        default=SubscriptionStatus.incomplete
     )
 
     current_period_start: Mapped[datetime] = mapped_column(DateTime)
     current_period_end: Mapped[datetime] = mapped_column(DateTime)
 
-    cancel_at_period_end: Mapped[bool] = mapped_column(default=False)
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
+    canceled_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
