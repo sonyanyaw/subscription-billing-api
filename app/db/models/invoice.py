@@ -16,6 +16,11 @@ class Invoice(Base):
         default=uuid.uuid4
     )
 
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True
+    )
+
     subscription_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("subscriptions.id", ondelete="CASCADE"),
         index=True
