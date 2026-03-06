@@ -1,7 +1,12 @@
 import enum
 
 
+class UserRole(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+
 class SubscriptionStatus(str, enum.Enum):
+    incomplete = "incomplete"
     active = "active"
     canceled = "canceled"
     expired = "expired"
