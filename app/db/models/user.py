@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime
+from sqlalchemy import String, Boolean, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.models.base import Base
+from app.db.models.enums import UserRole
 
 
 class User(Base):
@@ -22,13 +23,17 @@ class User(Base):
         nullable=False
     )
 
-    hashed_password: Mapped[str] = mapped_column(nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    is_active: Mapped[bool] = mapped_column(default=True)
-    is_superuser: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole),
+        default=UserRole.user,
+        nullable=False
+    )
 
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     subscriptions = relationship(
         "Subscription",
