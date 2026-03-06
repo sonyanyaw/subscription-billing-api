@@ -8,7 +8,7 @@ from app.core.security import decode_token
 from app.db.models.user import User
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/form")
 
 async def get_db():
     async with AsyncSessionLocal() as session:
