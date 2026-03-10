@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta
@@ -15,7 +16,7 @@ class SubscriptionService:
         result = await db.execute(select(Plan).where(Plan.id == plan_id))
         plan = result.scalar_one_or_none()
         if not plan or not plan.is_active:
-            raise ValueError("Plan not found or inactive")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found or inactive")
 
         result = await db.execute(
             select(Subscription).where(
@@ -25,7 +26,7 @@ class SubscriptionService:
         )
         existing = result.scalar_one_or_none()
         if existing:
-            raise ValueError("User already has active subscription")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has active subscription")
 
         now = datetime.utcnow()
         period_end = now + timedelta(days=30)
@@ -80,7 +81,7 @@ class SubscriptionService:
     async def cancel_subscription(db, subscription, immediate: bool = False):
 
         if subscription.status != SubscriptionStatus.active:
-            raise ValueError("Subscription is not active")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subscription is not active")
 
         if immediate:
             subscription.status = SubscriptionStatus.canceled
