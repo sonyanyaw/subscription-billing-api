@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     GRACE_PERIOD_DAYS: int
     BILLING_PERIOD_DAYS: int
 
+    STRIPE_SECRET_KEY: str
+    STRIPE_WEBHOOK_SECRET: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="allow",  
