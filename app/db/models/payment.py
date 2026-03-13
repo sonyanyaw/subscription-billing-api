@@ -32,6 +32,6 @@ class Payment(Base):
         default=PaymentStatus.pending
     )
 
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     invoice = relationship("Invoice", back_populates="payment")
