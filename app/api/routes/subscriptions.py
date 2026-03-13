@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user, get_db
 from app.db.models.subscription import Subscription
 from app.services.subscription_service import SubscriptionService
@@ -49,7 +50,9 @@ async def cancel_subscription(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Subscription).where(
+        select(Subscription)
+        .options(selectinload(Subscription.plan))
+        .where(
             Subscription.id == subscription_id,
             Subscription.user_id == current_user.id,
         )

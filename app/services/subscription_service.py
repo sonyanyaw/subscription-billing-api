@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from app.db.models.subscription import Subscription
 from app.db.models.plan import Plan
@@ -21,12 +22,20 @@ class SubscriptionService:
         result = await db.execute(
             select(Subscription).where(
                 Subscription.user_id == user_id,
-                Subscription.status == SubscriptionStatus.active
+                Subscription.status.in_([
+                    SubscriptionStatus.incomplete,
+                    SubscriptionStatus.active,
+                    SubscriptionStatus.past_due
+                ])
             )
         )
         existing = result.scalar_one_or_none()
+
         if existing:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has active subscription")
+            if existing.status == SubscriptionStatus.incomplete:
+                return existing
+            else:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a subscription")
 
         now = datetime.utcnow()
         period_end = now + timedelta(days=30)
@@ -34,7 +43,7 @@ class SubscriptionService:
         subscription = Subscription(
             user_id=user_id,
             plan_id=plan.id,
-            status=SubscriptionStatus.active,
+            status=SubscriptionStatus.incomplete,
             current_period_start=now,
             current_period_end=period_end,
         )
@@ -64,15 +73,18 @@ class SubscriptionService:
 
         result = await db.execute(select(Subscription))
 
-        return result.scalars().all
+        return result.scalars().all()
 
     @staticmethod
     async def get_user_subscription(db, user_id):
 
         result = await db.execute(
-            select(Subscription).where(
-                Subscription.user_id == user_id
+            select(Subscription)
+            .where(
+                Subscription.user_id == user_id,
+                Subscription.status == SubscriptionStatus.active
             )
+            .options(selectinload(Subscription.plan))
         )
 
         return result.scalar_one_or_none()
@@ -90,7 +102,7 @@ class SubscriptionService:
             subscription.cancel_at_period_end = True
 
         await db.commit()
-        await db.refresh(subscription)
+        await db.refresh(subscription, ["plan"])
 
         return subscription
 
