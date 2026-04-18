@@ -94,5 +94,66 @@ Subscription -> Invoice -> Payment
 
 ---
 
-##
+## Stripe Integration
 
+Используется **Payment Intents API**.
+
+**Flow:**
+1. Backend создаёт PaymentIntent
+2. Возвращает confirmation_url (client_secret)
+3. Клиент подтверждает оплату
+4. Stripe отправляет webhook
+5. Backend:
+6. обновляет Payment → succeeded
+7. обновляет Invoice → paid
+8. активирует Subscription
+
+---
+
+### Webhooks
+
+Endpoint:
+```
+POST /webhooks/stripe
+```
+
+Обрабатывает события:
+- payment_intent.succeeded
+- payment_intent.payment_failed
+
+---
+
+## Admin API
+
+Все admin endpoints требуют роль admin.
+
+---
+
+### Subscriptions
+Получить все подписки:
+```
+GET /admin/subscriptions
+```
+
+Получить активных подписчиков (с user + plan):
+```
+GET /admin/subscriptions/subscribers
+```
+
+---
+
+### Payments
+Получить все платежи:
+```
+GET /admin/payments
+```
+
+---
+
+### Invoices
+Получить список счетов с пагинацией:
+```
+GET /admin/invoices?limit=50&offset=0
+```
+
+---
