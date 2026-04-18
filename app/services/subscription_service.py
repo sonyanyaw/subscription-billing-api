@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
+from typing import Optional
+
 from app.db.models.subscription import Subscription
 from app.db.models.plan import Plan
 from app.db.models.invoice import Invoice
@@ -33,7 +35,12 @@ class SubscriptionService:
 
         if existing:
             if existing.status == SubscriptionStatus.incomplete:
-                return existing
+                result = await db.execute(
+                    select(Subscription)
+                    .where(Subscription.id == existing.id)
+                    .options(selectinload(Subscription.plan))
+                )
+                return result.scalar_one()
             else:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a subscription")
 
@@ -64,7 +71,14 @@ class SubscriptionService:
 
         await db.commit()
         await db.refresh(subscription)
-        await db.refresh(subscription, ["plan"])
+
+        result = await db.execute(
+            select(Subscription)
+            .where(Subscription.id == subscription.id)
+            .options(selectinload(Subscription.plan))
+        )
+
+        subscription = result.scalar_one()
 
         return subscription
     
@@ -150,3 +164,48 @@ class SubscriptionService:
                 sub.status = SubscriptionStatus.canceled
 
         await db.commit()
+
+
+
+    @staticmethod
+    async def get_list_subscriptions(
+        db: AsyncSession,
+        status: Optional[SubscriptionStatus] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ):
+        query = (
+            select(Subscription)
+            .options(
+                selectinload(Subscription.plan),
+                selectinload(Subscription.user),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        if status:
+            query = query.where(Subscription.status == status)
+
+        result = await db.execute(query)
+
+        return result.scalars().all()
+
+    @staticmethod
+    async def get_active_subscribers(
+        db: AsyncSession,
+        limit: int = 50,
+        offset: int = 0,
+    ):
+        result = await db.execute(
+            select(Subscription)
+            .where(Subscription.status == SubscriptionStatus.active)
+            .options(
+                selectinload(Subscription.user),
+                selectinload(Subscription.plan),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return result.scalars().all()
