@@ -133,4 +133,20 @@ class PaymentService:
         payment.status = PaymentStatus.failed
 
         await db.commit()
-    
+
+
+    @staticmethod
+    async def get_all_payments(
+        db: AsyncSession,
+        limit: int,
+        offset: int
+    ):
+
+        result = await db.execute(
+            select(Payment)
+            .options(selectinload(Payment.invoice))
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return result.scalars().all()
