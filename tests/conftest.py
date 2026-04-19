@@ -3,6 +3,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from httpx import AsyncClient, ASGITransport
 
+from app.db.models.plan import Plan
 from app.main import app
 from app.db.models.base import Base
 from app.api.deps import get_db
@@ -42,6 +43,20 @@ async def db_session(engine):
             await session.execute(table.delete())
 
         await session.commit()
+
+
+@pytest_asyncio.fixture
+async def seeded_plans(db_session):
+
+    plans = [
+        Plan(name="Free",       price=0.0,  currency="USD", api_limit= 1000, is_active=True),
+        Plan(name="Pro",        price=29.99, currency="USD", api_limit= 1000, is_active=True),
+        Plan(name="Enterprise", price=99.99, currency="USD", api_limit= 1000, is_active=True),
+    ]
+    
+    db_session.add_all(plans)
+    await db_session.commit()
+    return plans
 
 
 @pytest_asyncio.fixture
