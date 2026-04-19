@@ -15,12 +15,7 @@ async def list_invoices(
     current_user=Depends(get_current_user)
 ):
     
-    invoices = await InvoiceService.get_invoices(db, user_id=current_user.id)
-    
-    if not invoices:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No invoices found")
-
-    return invoices
+    return await InvoiceService.get_invoices(db, user_id=current_user.id)
 
 
 @router.get("/{invoice_id}", response_model=InvoiceOut)

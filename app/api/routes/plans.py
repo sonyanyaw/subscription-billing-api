@@ -15,9 +15,4 @@ async def list_plans(db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(select(Plan))
 
-    plans = result.scalars().all()
-
-    if not plans:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No plans found")
-
-    return plans
+    return result.scalars().all()
