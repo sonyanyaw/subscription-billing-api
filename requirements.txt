@@ -16,6 +16,8 @@ redis
 
 pytest
 pytest-asyncio
-
 httpx
+
 python-multipart
+
+stripe

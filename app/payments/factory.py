@@ -1,6 +1,6 @@
 from app.db.models.enums import PaymentProvider
 from app.payments.mock import MockProvider
-from app.payments.stripe import StripeProvider
+from app.payments.stripe_provider import StripeProvider
 # from app.payments.yookassa import YooKassaProvider
 
 
