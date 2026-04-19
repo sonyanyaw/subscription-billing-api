@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.session import AsyncSessionLocal
@@ -6,7 +7,10 @@ from app.services.subscription_service import SubscriptionService
 from app.api.routes import auth, plans, users, invoices, subscriptions, payments, usage, webhooks
 from app.api.routes.admin import payments as admin_payments, subscriptions as admin_subscriptions, invoices as admin_invoices
 
+
 app = FastAPI(title="Subscription & Billing API")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
