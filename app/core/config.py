@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str
     STRIPE_WEBHOOK_SECRET: str
 
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    DEBUG: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="allow",  
