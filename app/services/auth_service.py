@@ -57,7 +57,8 @@ class AuthService:
         result = await db.execute(
             select(RefreshToken).where(
                 RefreshToken.user_id == user_id,
-                RefreshToken.revoked == False
+                RefreshToken.revoked == False,
+                RefreshToken.expires_at > datetime.utcnow(),
             )
         )
         tokens = result.scalars().all()
