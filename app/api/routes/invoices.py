@@ -11,11 +11,13 @@ router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 @router.get("/", response_model=list[InvoiceOut], status_code=200)
 async def list_invoices(
+    limit: int = Query(50, ge=1, le=200),
+    skip: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     
-    return await InvoiceService.get_invoices(db, user_id=current_user.id)
+    return await InvoiceService.get_invoices(db, user_id=current_user.id, limit=limit, offset=skip)
 
 
 @router.get("/{invoice_id}", response_model=InvoiceOut)

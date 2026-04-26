@@ -10,12 +10,15 @@ class InvoiceService:
     @staticmethod
     async def get_invoices(
         db: AsyncSession, 
-        user_id: UUID
+        user_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
     ):
         result = await db.execute(
-            select(Invoice).where(
-                Invoice.user_id == user_id
-            )
+            select(Invoice)
+            .where(Invoice.user_id == user_id)
+            .limit(limit)
+            .offset(offset)
         )
 
         return result.scalars().all()
