@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from app.api.deps import get_db, require_admin
 from app.schemas.subscription import SubscriptionWithUserOut, SubscriptionOut
@@ -27,3 +28,13 @@ async def get_subscribers(
     admin=Depends(require_admin)
 ):
     return await SubscriptionService.get_active_subscribers(db, limit, offset)
+
+
+@router.post("/{subscription_id}/cancel", response_model=SubscriptionOut)
+async def admin_cancel_subscription(
+    subscription_id: UUID,
+    immediate: bool = True,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(require_admin),
+):
+    return await SubscriptionService.cancel_subscription(db, subscription_id, immediate)
