@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from typing import Optional
+from uuid import UUID
 
 from app.db.models.subscription import Subscription
 from app.db.models.plan import Plan
@@ -104,7 +105,30 @@ class SubscriptionService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def cancel_subscription(db, subscription, immediate: bool = False):
+    async def get_subscription_by_id(db: AsyncSession, subscription_id, user_id=None):
+        query = (
+            select(Subscription)
+            .options(selectinload(Subscription.plan))
+            .where(Subscription.id == subscription_id)
+        )
+        if user_id is not None:
+            query = query.where(Subscription.user_id == user_id)
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def cancel_subscription(
+        db: AsyncSession, 
+        subscription_id: UUID, 
+        immediate: bool = False, 
+        user_id: UUID = None,
+    ):
+
+        subscription = await SubscriptionService.get_subscription_by_id(db, subscription_id, user_id)
+
+        if not subscription:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
         if subscription.status != SubscriptionStatus.active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subscription is not active")
@@ -121,7 +145,7 @@ class SubscriptionService:
         return subscription
 
     @staticmethod
-    async def expire_subscriptions(db):
+    async def expire_subscriptions(db: AsyncSession):
         now = datetime.utcnow()
 
         result = await db.execute(
