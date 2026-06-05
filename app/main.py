@@ -7,8 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.services.subscription_service import SubscriptionService
-from app.api.routes import auth, plans, users, invoices, subscriptions, payments, usage, webhooks
-from app.api.routes.admin import payments as admin_payments, subscriptions as admin_subscriptions, invoices as admin_invoices
+from app.api.routes import auth, plans, users, invoices, subscriptions, payments, usage, webhooks, billings
+from app.api.routes.admin import (
+    payments as admin_payments,
+    subscriptions as admin_subscriptions,
+    invoices as admin_invoices,
+    webhooks as admin_webhooks,
+    plans as admin_plans,
+    users as admin_users,
+    stats as admin_stats,
+)
+from app.middleware.usage_middleware import UsageMiddleware
 
 
 logging.basicConfig(
@@ -21,9 +30,10 @@ app = FastAPI(title="Subscription & Billing API")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+app.add_middleware(UsageMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS, 
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,12 +46,17 @@ app.include_router(invoices.router)
 app.include_router(subscriptions.router)
 app.include_router(payments.router)
 app.include_router(usage.router)
+app.include_router(billings.router)
 
 app.include_router(webhooks.router)
 
 app.include_router(admin_subscriptions.router)
 app.include_router(admin_payments.router)
 app.include_router(admin_invoices.router)
+app.include_router(admin_webhooks.router)
+app.include_router(admin_plans.router)
+app.include_router(admin_users.router)
+app.include_router(admin_stats.router)
 
 
 @app.exception_handler(Exception)

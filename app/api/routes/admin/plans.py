@@ -9,6 +9,13 @@ from app.schemas.plan import PlanCreate, PlanOut, PlanUpdate
 
 router = APIRouter(prefix="/admin/plans", tags=["admin/plans"])
 
+
+@router.get("/", response_model=list[PlanOut])
+async def list_plans(db: AsyncSession = Depends(get_db), admin=Depends(require_admin)):
+    result = await db.execute(select(Plan))
+    return result.scalars().all()
+
+
 @router.post("/", response_model=PlanOut)
 async def create_plan(data: PlanCreate, db: AsyncSession = Depends(get_db), admin=Depends(require_admin)):
     plan = Plan(**data.dict())
