@@ -149,9 +149,11 @@ class SubscriptionService:
         now = datetime.utcnow()
 
         result = await db.execute(
-            select(Subscription).where(
+            select(Subscription)
+            .options(selectinload(Subscription.plan))
+            .where(
                 Subscription.status == SubscriptionStatus.active,
-                Subscription.current_period_end <= now
+                Subscription.current_period_end <= now,
             )
         )
 
@@ -160,6 +162,7 @@ class SubscriptionService:
         for sub in active_subs:
 
             invoice = Invoice(
+                user_id=sub.user_id,
                 subscription_id=sub.id,
                 amount=sub.plan.price,
                 currency=sub.plan.currency,
