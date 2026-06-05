@@ -443,6 +443,12 @@ let pendingCancelSubId = null;
 
 // On load — restore session if token exists
 window.onload = () => {
+  // Restore webhook log from localStorage
+  try {
+    const savedLog = localStorage.getItem('billing_webhook_log');
+    if (savedLog) webhookLog = JSON.parse(savedLog);
+  } catch { webhookLog = []; }
+
   const saved = localStorage.getItem('billing_token');
   const savedBase = localStorage.getItem('billing_base');
   if (saved && savedBase) {
@@ -454,6 +460,7 @@ window.onload = () => {
     document.getElementById('tester-token').value = saved;
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
+    renderWebhooks();
     loadAllData();
   }
 };
@@ -510,6 +517,7 @@ function doLogout() {
   allUsers = []; allInvoices = []; allSubs = []; allPayments = []; webhookLog = [];
   localStorage.removeItem('billing_token');
   localStorage.removeItem('billing_base');
+  localStorage.removeItem('billing_webhook_log');
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-password').value = '';
@@ -759,11 +767,19 @@ function addWebhookEntry(event, resource, status) {
   const p = n => String(n).padStart(2,'0');
   const time = `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
   webhookLog.unshift({ time, event, status, resource, payload: JSON.stringify({event,resource,timestamp:time},null,2) });
+  // Keep at most 200 entries so localStorage doesn't grow unbounded
+  if (webhookLog.length > 200) webhookLog = webhookLog.slice(0, 200);
+  try { localStorage.setItem('billing_webhook_log', JSON.stringify(webhookLog)); } catch {}
   renderWebhooks();
   renderDashboard();
 }
 
-function clearWebhooks() { webhookLog = []; renderWebhooks(); renderDashboard(); }
+function clearWebhooks() {
+  webhookLog = [];
+  localStorage.removeItem('billing_webhook_log');
+  renderWebhooks();
+  renderDashboard();
+}
 
 function fireSimulatedWebhook() {
   const event = document.getElementById('wh-event-type').value;
