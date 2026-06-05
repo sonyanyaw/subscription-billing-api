@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     BILLING_PERIOD_DAYS: int
 
     STRIPE_SECRET_KEY: str
+    STRIPE_PUBLIC_KEY: str
     STRIPE_WEBHOOK_SECRET: str
+    PAYMENT_RETURN_URL: str = "http://localhost:8000/static/dashboard.html"
 
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
     DEBUG: bool = False
