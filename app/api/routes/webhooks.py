@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.api.deps import get_db
+from app.db.models.enums import WebhookEventStatus
 from app.services.payment_service import PaymentService
+from app.services.webhook_event_service import WebhookEventService
 
 logger = logging.getLogger(__name__)
 
@@ -38,18 +40,36 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Invalid payload")
 
     event_type = event["type"]
-    
-    logger.info("Stripe webhook received: %s", event_type)
+    provider_payment_id = event["data"]["object"]["id"]
 
-    if event_type == "payment_intent.succeeded":
-        intent = event["data"]["object"]
-        await PaymentService.handle_stripe_success(db, intent["id"])
+    logger.info("Stripe webhook received: %s  payment_id=%s", event_type, provider_payment_id)
 
-    elif event_type == "payment_intent.payment_failed":
-        payment_intent = event["data"]["object"]
-        await PaymentService.handle_stripe_failed(db, payment_intent["id"])
+    db_event = await WebhookEventService.log(
+        db,
+        event_type=event_type,
+        provider_payment_id=provider_payment_id,
+        status=WebhookEventStatus.received,
+        payload=event.to_dict_recursive(),
+    )
 
-    else:
-        pass
+    try:
+        if event_type == "payment_intent.succeeded":
+            await PaymentService.handle_stripe_success(db, provider_payment_id)
+            db_event.status = WebhookEventStatus.processed
+
+        elif event_type == "payment_intent.payment_failed":
+            await PaymentService.handle_stripe_failed(db, provider_payment_id)
+            db_event.status = WebhookEventStatus.processed
+
+        else:
+            logger.info("Unhandled Stripe event type: %s", event_type)
+            db_event.status = WebhookEventStatus.processed
+
+        await db.commit()
+
+    except Exception as e:
+        logger.exception("Error processing webhook %s: %s", event_type, e)
+        db_event.status = WebhookEventStatus.failed
+        await db.commit()
 
     return {"status": "ok"}
