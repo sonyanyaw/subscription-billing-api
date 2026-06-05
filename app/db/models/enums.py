@@ -29,3 +29,9 @@ class PaymentStatus(str, enum.Enum):
 class PaymentProvider(str, enum.Enum):
     stripe = "stripe"
     mock = "mock"
+
+
+class WebhookEventStatus(str, enum.Enum):
+    received = "received"
+    processed = "processed"
+    failed = "failed"
