@@ -136,6 +136,26 @@ class PaymentService:
 
 
     @staticmethod
+    async def _get_pending_payment(db: AsyncSession, payment_id: uuid.UUID) -> Payment:
+        result = await db.execute(select(Payment).where(Payment.id == payment_id))
+        payment = result.scalar_one_or_none()
+        if not payment:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+        if payment.status != PaymentStatus.pending:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payment is not pending")
+        return payment
+
+    @staticmethod
+    async def confirm_payment(db: AsyncSession, payment_id: uuid.UUID) -> None:
+        payment = await PaymentService._get_pending_payment(db, payment_id)
+        await PaymentService.handle_stripe_success(db, payment.provider_payment_id)
+
+    @staticmethod
+    async def fail_payment(db: AsyncSession, payment_id: uuid.UUID) -> None:
+        payment = await PaymentService._get_pending_payment(db, payment_id)
+        await PaymentService.handle_stripe_failed(db, payment.provider_payment_id)
+
+    @staticmethod
     async def get_all_payments(
         db: AsyncSession,
         limit: int,
