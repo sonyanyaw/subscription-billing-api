@@ -10,7 +10,6 @@ class SubscriptionBase(BaseModel):
     cancel_at_period_end: bool = False
 
 class SubscriptionCreate(BaseModel):
-    user_id: UUID
     plan_id: UUID
 
 class SubscriptionUpdate(BaseModel):
