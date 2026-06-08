@@ -21,3 +21,4 @@ httpx
 python-multipart
 
 stripe
+apscheduler>=3.10,<4
