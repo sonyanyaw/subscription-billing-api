@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from app.core.utils import utcnow
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.db.models.subscription import Subscription
@@ -15,7 +16,7 @@ class BillingService:
     @staticmethod
     async def process_renewals(db):
 
-        now = datetime.utcnow()
+        now = utcnow()
 
         result = await db.execute(
             select(Subscription)
@@ -52,7 +53,7 @@ class BillingService:
     @staticmethod
     async def process_grace_expirations(db):
 
-        now = datetime.utcnow()
+        now = utcnow()
 
         result = await db.execute(
             select(Subscription).where(

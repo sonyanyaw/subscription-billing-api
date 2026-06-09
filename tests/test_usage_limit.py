@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.core.utils import utcnow
 
 import pytest
 import pytest_asyncio
@@ -23,7 +24,7 @@ async def limited_subscription_headers(client, db_session):
     db_session.add(plan)
     await db_session.flush()
 
-    now = datetime.utcnow()
+    now = utcnow()
     sub = Subscription(
         user_id=user.id,
         plan_id=plan.id,

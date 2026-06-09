@@ -3,7 +3,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from datetime import datetime, timedelta
+from app.core.utils import utcnow
+
+logger = logging.getLogger(__name__)
 
 from app.db.models.invoice import Invoice
 from app.db.models.payment import Payment
@@ -89,7 +93,7 @@ class PaymentService:
         payment = result.scalar_one_or_none()
 
         if not payment:
-            print("Payment not found")
+            logger.warning("handle_stripe_success: payment not found for provider_payment_id=%s", provider_payment_id)
             return
 
         if payment.status == PaymentStatus.succeeded:
@@ -99,11 +103,11 @@ class PaymentService:
 
         invoice = payment.invoice
         invoice.status = InvoiceStatus.paid
-        invoice.paid_at = datetime.utcnow()
+        invoice.paid_at = utcnow()
 
         subscription = invoice.subscription
 
-        now = datetime.utcnow()
+        now = utcnow()
 
         subscription.status = SubscriptionStatus.active
         subscription.current_period_start = now

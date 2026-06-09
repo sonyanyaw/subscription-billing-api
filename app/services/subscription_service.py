@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
+from app.core.utils import utcnow
 from typing import Optional
 from uuid import UUID
 
@@ -45,7 +46,7 @@ class SubscriptionService:
             else:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a subscription")
 
-        now = datetime.utcnow()
+        now = utcnow()
         period_end = now + timedelta(days=30)
 
         subscription = Subscription(
@@ -135,7 +136,7 @@ class SubscriptionService:
 
         if immediate:
             subscription.status = SubscriptionStatus.canceled
-            subscription.canceled_at = datetime.utcnow()
+            subscription.canceled_at = utcnow()
         else:
             subscription.cancel_at_period_end = True
 
@@ -146,7 +147,7 @@ class SubscriptionService:
 
     @staticmethod
     async def expire_subscriptions(db: AsyncSession):
-        now = datetime.utcnow()
+        now = utcnow()
 
         result = await db.execute(
             select(Subscription)

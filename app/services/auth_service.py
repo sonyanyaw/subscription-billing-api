@@ -5,6 +5,7 @@ from app.db.models.user import User
 from app.db.models.refresh_token import RefreshToken
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from datetime import datetime, timedelta
+from app.core.utils import utcnow
 
 class AuthService:
 
@@ -39,7 +40,7 @@ class AuthService:
         refresh_token = RefreshToken(
             user_id=user.id,
             token_hash=hash_password(refresh_token_str),
-            expires_at=datetime.utcnow() + timedelta(days=30)
+            expires_at=utcnow() + timedelta(days=30)
         )
         db.add(refresh_token)
         await db.commit()
@@ -58,7 +59,7 @@ class AuthService:
             select(RefreshToken).where(
                 RefreshToken.user_id == user_id,
                 RefreshToken.revoked == False,
-                RefreshToken.expires_at > datetime.utcnow(),
+                RefreshToken.expires_at > utcnow(),
             )
         )
         tokens = result.scalars().all()
@@ -80,7 +81,7 @@ class AuthService:
         new_db_token = RefreshToken(
             user_id=user_id,
             token_hash=hash_password(new_refresh_token),
-            expires_at=datetime.utcnow() + timedelta(days=30)
+            expires_at=utcnow() + timedelta(days=30)
         )
         db.add(new_db_token)
 
