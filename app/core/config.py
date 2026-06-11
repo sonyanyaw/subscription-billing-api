@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str
     PAYMENT_RETURN_URL: str = "http://localhost:8000/static/dashboard.html"
 
+    YOOKASSA_SHOP_ID: str
+    YOOKASSA_SECRET_KEY: str
+
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
     DEBUG: bool = False
 

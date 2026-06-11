@@ -21,4 +21,5 @@ httpx
 python-multipart
 
 stripe
+yookassa
 apscheduler>=3.10,<4

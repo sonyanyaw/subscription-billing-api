@@ -1,7 +1,7 @@
 from app.db.models.enums import PaymentProvider
 from app.payments.mock import MockProvider
 from app.payments.stripe_provider import StripeProvider
-# from app.payments.yookassa import YooKassaProvider
+from app.payments.yookassa import YooKassaProvider
 
 
 def get_provider(provider: PaymentProvider):
@@ -12,7 +12,8 @@ def get_provider(provider: PaymentProvider):
     if provider == PaymentProvider.stripe:
         return StripeProvider()
 
-    # if provider == PaymentProvider.yookassa:
-    #     return YooKassaProvider()
+    if provider == PaymentProvider.yookassa:
+        
+        return YooKassaProvider()
 
     raise ValueError("Unknown provider")

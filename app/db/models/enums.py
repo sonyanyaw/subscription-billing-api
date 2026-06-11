@@ -28,6 +28,7 @@ class PaymentStatus(str, enum.Enum):
 
 class PaymentProvider(str, enum.Enum):
     stripe = "stripe"
+    yookassa = "yookassa"
     mock = "mock"
 
 

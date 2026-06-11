@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.api.deps import get_db
 from app.db.models.enums import WebhookEventStatus
+from app.services.alert_service import send_webhook_failed_alert
 from app.services.payment_service import PaymentService
 from app.services.webhook_event_service import WebhookEventService
 
@@ -71,5 +72,57 @@ async def stripe_webhook(
         logger.exception("Error processing webhook %s: %s", event_type, e)
         db_event.status = WebhookEventStatus.failed
         await db.commit()
+        await send_webhook_failed_alert(event_type, provider_payment_id, str(e))
+
+    return {"status": "ok"}
+
+
+@router.post("/yookassa")
+async def yookassa_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
+    event_type = body.get("event")
+    obj = body.get("object", {})
+    provider_payment_id = obj.get("id")
+
+    if not event_type or not provider_payment_id:
+        raise HTTPException(status_code=400, detail="Missing event or object.id")
+
+    logger.info("YooKassa webhook received: %s  payment_id=%s", event_type, provider_payment_id)
+
+    db_event = await WebhookEventService.log(
+        db,
+        event_type=event_type,
+        provider_payment_id=provider_payment_id,
+        status=WebhookEventStatus.received,
+        payload=body,
+    )
+
+    try:
+        if event_type == "payment.succeeded":
+            await PaymentService.handle_stripe_success(db, provider_payment_id)
+            db_event.status = WebhookEventStatus.processed
+
+        elif event_type == "payment.canceled":
+            await PaymentService.handle_stripe_failed(db, provider_payment_id)
+            db_event.status = WebhookEventStatus.processed
+
+        else:
+            logger.info("Unhandled YooKassa event type: %s", event_type)
+            db_event.status = WebhookEventStatus.processed
+
+        await db.commit()
+
+    except Exception as e:
+        logger.exception("Error processing YooKassa webhook %s: %s", event_type, e)
+        db_event.status = WebhookEventStatus.failed
+        await db.commit()
+        await send_webhook_failed_alert(event_type, provider_payment_id, str(e))
 
     return {"status": "ok"}
