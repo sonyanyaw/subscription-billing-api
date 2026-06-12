@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, Boolean, ForeignKey, Enum, Index
+from sqlalchemy import String, DateTime, Boolean, ForeignKey, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.core.utils import utcnow
 from app.db.models.base import Base
 from app.db.models.enums import SubscriptionStatus
 
@@ -26,6 +27,8 @@ class Subscription(Base):
         index=True
     )
 
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="USD")
+
     status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus),
         default=SubscriptionStatus.incomplete
@@ -37,7 +40,7 @@ class Subscription(Base):
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
     canceled_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     user = relationship("User", back_populates="subscriptions")
     plan = relationship("Plan", back_populates="subscriptions")
