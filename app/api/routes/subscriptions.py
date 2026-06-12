@@ -18,7 +18,7 @@ async def create_subscription(
 ):
     try:
         subscription = await SubscriptionService.create_subscription(
-            db, current_user.id, data.plan_id
+            db, current_user.id, data.plan_id, data.currency
         )
         return subscription
     except ValueError as e:
