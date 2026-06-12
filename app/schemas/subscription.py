@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import datetime
-from app.schemas.plan import PlanOut
+from app.schemas.plan import PlanSummary
 from app.db.models.enums import SubscriptionStatus
 from app.schemas.user import UserOut
 
@@ -11,6 +11,7 @@ class SubscriptionBase(BaseModel):
 
 class SubscriptionCreate(BaseModel):
     plan_id: UUID
+    currency: str = "USD"
 
 class SubscriptionUpdate(BaseModel):
     status: SubscriptionStatus | None = None
@@ -19,7 +20,8 @@ class SubscriptionUpdate(BaseModel):
 class SubscriptionOut(SubscriptionBase):
     id: UUID
     user_id: UUID
-    plan: PlanOut
+    plan: PlanSummary
+    currency: str
     status: SubscriptionStatus
     current_period_start: datetime
     current_period_end: datetime
@@ -32,7 +34,8 @@ class SubscriptionOut(SubscriptionBase):
 class SubscriptionWithUserOut(SubscriptionBase):
     id: UUID
     user: UserOut
-    plan: PlanOut
+    plan: PlanSummary
+    currency: str
     status: SubscriptionStatus
     current_period_start: datetime
     current_period_end: datetime
