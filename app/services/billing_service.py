@@ -3,6 +3,7 @@ from app.core.utils import utcnow
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.db.models.subscription import Subscription
+from app.db.models.plan_price import PlanPrice
 from app.db.models.invoice import Invoice
 from app.db.models.enums import (
     SubscriptionStatus,
@@ -31,11 +32,22 @@ class BillingService:
 
         for sub in subscriptions:
 
+            price_result = await db.execute(
+                select(PlanPrice).where(
+                    PlanPrice.plan_id == sub.plan_id,
+                    PlanPrice.currency == sub.currency,
+                )
+            )
+            price = price_result.scalar_one_or_none()
+            if not price:
+                # No price configured for this subscription's currency — skip renewal.
+                continue
+
             invoice = Invoice(
                 user_id=sub.user_id,
                 subscription_id=sub.id,
-                amount=sub.plan.price,
-                currency=sub.plan.currency,
+                amount=price.amount,
+                currency=sub.currency,
                 status=InvoiceStatus.open,
                 due_date=now + timedelta(days=settings.GRACE_PERIOD_DAYS),
             )

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.db.models.subscription import Subscription
 from app.db.models.plan import Plan
+from app.db.models.plan_price import PlanPrice
 from app.db.models.invoice import Invoice
 from app.db.models.enums import SubscriptionStatus, InvoiceStatus
 from app.core.config import settings
@@ -17,11 +18,29 @@ from app.core.config import settings
 class SubscriptionService:
 
     @staticmethod
-    async def create_subscription(db: AsyncSession, user_id, plan_id):
+    async def _get_plan_price(db: AsyncSession, plan_id, currency: str) -> PlanPrice:
+        result = await db.execute(
+            select(PlanPrice).where(
+                PlanPrice.plan_id == plan_id,
+                PlanPrice.currency == currency,
+            )
+        )
+        price = result.scalar_one_or_none()
+        if not price:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Plan has no price in currency '{currency}'",
+            )
+        return price
+
+    @staticmethod
+    async def create_subscription(db: AsyncSession, user_id, plan_id, currency: str = "USD"):
         result = await db.execute(select(Plan).where(Plan.id == plan_id))
         plan = result.scalar_one_or_none()
         if not plan or not plan.is_active:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found or inactive")
+
+        price = await SubscriptionService._get_plan_price(db, plan_id, currency)
 
         result = await db.execute(
             select(Subscription).where(
@@ -52,19 +71,20 @@ class SubscriptionService:
         subscription = Subscription(
             user_id=user_id,
             plan_id=plan.id,
+            currency=currency,
             status=SubscriptionStatus.incomplete,
             current_period_start=now,
             current_period_end=period_end,
         )
 
         db.add(subscription)
-        await db.flush()  
+        await db.flush()
 
         invoice = Invoice(
             user_id=user_id,
             subscription_id=subscription.id,
-            amount=plan.price,
-            currency=plan.currency,
+            amount=price.amount,
+            currency=currency,
             status=InvoiceStatus.open,
             due_date=period_end,
         )
@@ -162,11 +182,13 @@ class SubscriptionService:
 
         for sub in active_subs:
 
+            price = await SubscriptionService._get_plan_price(db, sub.plan_id, sub.currency)
+
             invoice = Invoice(
                 user_id=sub.user_id,
                 subscription_id=sub.id,
-                amount=sub.plan.price,
-                currency=sub.plan.currency,
+                amount=price.amount,
+                currency=sub.currency,
                 status=InvoiceStatus.open,
                 due_date=now + timedelta(days=settings.GRACE_PERIOD_DAYS),
             )

@@ -13,7 +13,7 @@ from app.db.models.invoice import Invoice
 from app.db.models.payment import Payment
 from app.db.models.enums import InvoiceStatus, PaymentProvider, PaymentStatus, SubscriptionStatus
 from app.core.config import settings
-from app.payments.factory import get_provider
+from app.payments.factory import get_provider, provider_supports_currency
 
 
 class PaymentService:
@@ -42,6 +42,12 @@ class PaymentService:
         
         if invoice.status == InvoiceStatus.paid:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invoice already paid")
+
+        if not provider_supports_currency(provider, invoice.currency):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Provider '{provider.value}' does not support currency '{invoice.currency}'",
+            )
 
         result = await db.execute(
             select(Payment).where(
