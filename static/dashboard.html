@@ -102,6 +102,9 @@
   table { width:100%; border-collapse:collapse; }
   thead tr { border-bottom:1px solid var(--border); }
   th { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); padding:12px 16px; text-align:left; font-weight:400; background:var(--surface2); }
+  th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+  th.sortable:hover { color:var(--text); }
+  .sort-ind { display:inline-block; width:10px; color:var(--accent,#6c8cff); }
   td { font-size:12px; padding:12px 16px; border-bottom:1px solid var(--border); color:var(--text); }
   tr:last-child td { border-bottom:none; }
   tbody tr { transition:background 0.1s; cursor:pointer; }
@@ -270,20 +273,46 @@
         <div class="section-header">
           <div class="section-title">All Subscribers</div>
           <div class="section-actions">
-            <input class="input" placeholder="Search by email…" style="width:200px" id="user-search" oninput="filterUsers(this.value)">
+            <input class="input" placeholder="Search by email…" style="width:200px" id="user-search" oninput="setFilter('users','text',this.value)">
           </div>
         </div>
         <div class="table-wrap">
-          <table><thead><tr><th>ID</th><th>Email</th><th>Role</th><th>Active</th><th>Created</th><th>Plan</th></tr></thead>
+          <table><thead><tr>
+            <th class="sortable" data-sort="id" onclick="sortBy('users','id')">ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="email" onclick="sortBy('users','email')">Email<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="role" onclick="sortBy('users','role')">Role<span class="sort-ind"></span></th>
+            <th>Active</th>
+            <th class="sortable" data-sort="created" onclick="sortBy('users','created')">Created<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="plan" onclick="sortBy('users','plan')">Plan<span class="sort-ind"></span></th>
+          </tr></thead>
           <tbody id="users-tbody"><tr><td colspan="5"><div class="empty-state"><div class="empty-icon">◎</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
       </div>
 
       <!-- SUBSCRIPTIONS -->
       <div class="tab-panel" id="tab-subscriptions">
-        <div class="section-header"><div class="section-title">Subscriptions</div></div>
+        <div class="section-header">
+          <div class="section-title">Subscriptions</div>
+          <div class="section-actions">
+            <select class="form-select" id="sub-status-filter" onchange="setFilter('subs','status',this.value)" style="width:140px">
+              <option value="">All statuses</option>
+              <option value="incomplete">Incomplete</option>
+              <option value="active">Active</option>
+              <option value="past_due">Past due</option>
+              <option value="canceled">Canceled</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
         <div class="table-wrap">
-          <table><thead><tr><th>ID</th><th>User ID</th><th>Plan</th><th>Status</th><th>Period End</th><th>Actions</th></tr></thead>
+          <table><thead><tr>
+            <th class="sortable" data-sort="id" onclick="sortBy('subs','id')">ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="user" onclick="sortBy('subs','user')">User ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="plan" onclick="sortBy('subs','plan')">Plan<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="status" onclick="sortBy('subs','status')">Status<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="period" onclick="sortBy('subs','period')">Period End<span class="sort-ind"></span></th>
+            <th>Actions</th>
+          </tr></thead>
           <tbody id="subs-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">↻</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
       </div>
@@ -293,7 +322,7 @@
         <div class="section-header">
           <div class="section-title">Invoices</div>
           <div class="section-actions">
-            <select class="form-select" id="invoice-status-filter" onchange="filterInvoices(this.value)" style="width:140px">
+            <select class="form-select" id="invoice-status-filter" onchange="setFilter('invoices','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
               <option value="open">Open</option>
@@ -303,16 +332,46 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table><thead><tr><th>Invoice ID</th><th>Subscription ID</th><th>Amount</th><th>Currency</th><th>Status</th><th>Due Date</th></tr></thead>
+          <table><thead><tr>
+            <th class="sortable" data-sort="id" onclick="sortBy('invoices','id')">Invoice ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="sub" onclick="sortBy('invoices','sub')">Subscription ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="amount" onclick="sortBy('invoices','amount')">Amount<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="currency" onclick="sortBy('invoices','currency')">Currency<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="status" onclick="sortBy('invoices','status')">Status<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="due" onclick="sortBy('invoices','due')">Due Date<span class="sort-ind"></span></th>
+          </tr></thead>
           <tbody id="invoices-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◻</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
       </div>
 
       <!-- PAYMENTS -->
       <div class="tab-panel" id="tab-payments">
-        <div class="section-header"><div class="section-title">Payment History</div></div>
+        <div class="section-header">
+          <div class="section-title">Payment History</div>
+          <div class="section-actions">
+            <select class="form-select" id="payment-status-filter" onchange="setFilter('payments','status',this.value)" style="width:140px">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="succeeded">Succeeded</option>
+              <option value="failed">Failed</option>
+            </select>
+            <select class="form-select" id="payment-provider-filter" onchange="setFilter('payments','provider',this.value)" style="width:140px">
+              <option value="">All providers</option>
+              <option value="mock">mock</option>
+              <option value="stripe">stripe</option>
+              <option value="yookassa">yookassa</option>
+            </select>
+          </div>
+        </div>
         <div class="table-wrap">
-          <table><thead><tr><th>Payment ID</th><th>Invoice ID</th><th>Provider</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+          <table><thead><tr>
+            <th class="sortable" data-sort="id" onclick="sortBy('payments','id')">Payment ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="invoice" onclick="sortBy('payments','invoice')">Invoice ID<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="provider" onclick="sortBy('payments','provider')">Provider<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="status" onclick="sortBy('payments','status')">Status<span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="created" onclick="sortBy('payments','created')">Created<span class="sort-ind"></span></th>
+            <th>Actions</th>
+          </tr></thead>
           <tbody id="payments-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◆</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
       </div>
@@ -382,7 +441,7 @@
             <div class="response-box empty" id="res-create-payment">// Response will appear here</div>
           </div>
         </div>
-        <div class="api-tester"><div class="tester-header"><span class="method-badge method-PATCH">PATCH</span><span class="endpoint-path">/payments/{id}/confirm</span><button class="btn" onclick="runEndpoint('confirm-payment')">Send →</button></div>
+        <div class="api-tester"><div class="tester-header"><span class="method-badge method-PATCH">PATCH</span><span class="endpoint-path">/admin/payments/{id}/confirm</span><button class="btn" onclick="runEndpoint('confirm-payment')">Send →</button></div>
           <div class="tester-body">
             <div class="tester-row"><div class="tester-label">Payment ID</div><input class="input tester-input" id="confirm-id" placeholder="uuid"></div>
             <div class="response-box empty" id="res-confirm-payment">// Response will appear here</div>
@@ -554,8 +613,7 @@ async function loadUsers() {
   try {
     const data = await apiFetch('/admin/subscriptions/subscribers');
     allUsers = toArray(data);
-    console.log('Loaded users:', allUsers);
-    renderUsers(allUsers);
+    applyView('users');
   } catch {
     // endpoint may not exist yet
     renderUsers([]);
@@ -566,7 +624,7 @@ async function loadSubscriptions() {
   try {
     const data = await apiFetch('/admin/subscriptions/');
     allSubs = toArray(data);
-    renderSubscriptions(allSubs);
+    applyView('subs');
   } catch(e) {
     showToast('Subscriptions: ' + e.message, 'error');
     renderSubscriptions([]);
@@ -577,7 +635,7 @@ async function loadInvoices() {
   try {
     const data = await apiFetch('/admin/invoices/');
     allInvoices = toArray(data);
-    renderInvoices(allInvoices);
+    applyView('invoices');
   } catch(e) {
     showToast('Invoices: ' + e.message, 'error');
     renderInvoices([]);
@@ -588,7 +646,7 @@ async function loadPayments() {
   try {
     const data = await apiFetch('/admin/payments/');
     allPayments = toArray(data);
-    renderPayments(allPayments);
+    applyView('payments');
   } catch(e) {
     showToast('Payments: ' + e.message, 'error');
     renderPayments([]);
@@ -659,9 +717,87 @@ function renderUsers(users) {
   </tr>`).join('');
 }
 
-function filterUsers(q) {
-  renderUsers(allUsers.filter(u => (u.email||'').toLowerCase().includes(q.toLowerCase()) || String(u.id).includes(q)));
+// ═══ SORT + FILTER CONTROLLER ════════════════════════
+// Each table has: a data source, a render fn, sortable column accessors,
+// and a filter predicate. State (current sort + active filters) lives on
+// the config object so it survives data reloads.
+const views = {
+  users: {
+    panel: 'tab-subscribers', data: () => allUsers, render: renderUsers,
+    sort: null, dir: 1, text: '',
+    cols: { id: r => r.id, email: r => r.user?.email || '', role: r => r.role || 'user',
+            created: r => r.created_at, plan: r => r.plan?.name || '' },
+    matches: (r, st) => !st.text ||
+      (r.user?.email || '').toLowerCase().includes(st.text) || String(r.id).includes(st.text),
+  },
+  subs: {
+    panel: 'tab-subscriptions', data: () => allSubs, render: renderSubscriptions,
+    sort: null, dir: 1, status: '',
+    cols: { id: r => r.id, user: r => r.user_id, plan: r => r.plan?.name || r.plan_id || '',
+            status: r => r.status, period: r => r.current_period_end },
+    matches: (r, st) => !st.status || r.status === st.status,
+  },
+  invoices: {
+    panel: 'tab-invoices', data: () => allInvoices, render: renderInvoices,
+    sort: null, dir: 1, status: '',
+    cols: { id: r => r.id, sub: r => r.subscription_id, amount: r => Number(r.amount || 0),
+            currency: r => (r.currency || '').toUpperCase(), status: r => r.status, due: r => r.due_date },
+    matches: (r, st) => !st.status || r.status === st.status,
+  },
+  payments: {
+    panel: 'tab-payments', data: () => allPayments, render: renderPayments,
+    sort: null, dir: 1, status: '', provider: '',
+    cols: { id: r => r.id, invoice: r => r.invoice_id, provider: r => r.provider || '',
+            status: r => r.status, created: r => r.created_at },
+    matches: (r, st) => (!st.status || r.status === st.status) && (!st.provider || r.provider === st.provider),
+  },
+};
+
+function cmpValues(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  const da = Date.parse(a), db = Date.parse(b);
+  if (!isNaN(da) && !isNaN(db)) return da - db;
+  return String(a).localeCompare(String(b));
 }
+
+function applyView(name) {
+  const v = views[name];
+  let rows = v.data().filter(r => v.matches(r, v));
+  if (v.sort && v.cols[v.sort]) {
+    const acc = v.cols[v.sort];
+    rows = [...rows].sort((a, b) => cmpValues(acc(a), acc(b)) * v.dir);
+  }
+  v.render(rows);
+  updateSortIndicators(name);
+}
+
+function sortBy(name, key) {
+  const v = views[name];
+  if (v.sort === key) v.dir *= -1;
+  else { v.sort = key; v.dir = 1; }
+  applyView(name);
+}
+
+function setFilter(name, field, value) {
+  views[name][field] = field === 'text' ? value.toLowerCase() : value;
+  applyView(name);
+}
+
+function updateSortIndicators(name) {
+  const v = views[name];
+  const thead = document.querySelector(`#${v.panel} thead`);
+  if (!thead) return;
+  thead.querySelectorAll('.sort-ind').forEach(s => s.textContent = '');
+  if (!v.sort) return;
+  const active = thead.querySelector(`[data-sort="${v.sort}"] .sort-ind`);
+  if (active) active.textContent = v.dir > 0 ? '▲' : '▼';
+}
+
+// Backwards-compatible thin wrappers.
+function filterUsers(q) { setFilter('users', 'text', q); }
 
 function renderSubscriptions(subs) {
   const tb = document.getElementById('subs-tbody');
@@ -691,9 +827,7 @@ function renderInvoices(invs) {
   </tr>`).join('');
 }
 
-function filterInvoices(status) {
-  renderInvoices(status ? allInvoices.filter(i=>i.status===status) : allInvoices);
-}
+function filterInvoices(status) { setFilter('invoices', 'status', status); }
 
 function renderPayments(pays) {
   const tb = document.getElementById('payments-tbody');
@@ -734,10 +868,12 @@ async function executeCancelSub() {
 
 async function confirmPayment(id) {
   try {
-    await apiFetch(`/payments/${id}/confirm`, { method: 'PATCH' });
+    await apiFetch(`/admin/payments/${id}/confirm`, { method: 'PATCH' });
     addWebhookEntry('payment.succeeded', id, 'succeeded');
     showToast('Payment confirmed ✓', 'ok');
-    await loadPayments();
+    // Confirming a payment also flips the invoice (→ paid) and subscription (→ active),
+    // so refresh those views too — not just the payments table.
+    await Promise.all([loadPayments(), loadInvoices(), loadSubscriptions()]);
     renderDashboard();
   } catch(e) {
     showToast('Confirm failed: ' + e.message, 'error');
@@ -816,7 +952,7 @@ async function runEndpoint(name) {
     else if (name === 'admin-cancel') r = await P(`/admin/subscriptions/${v('te-cancel-id')}/cancel`);
     else if (name === 'list-invoices') r = await G('/invoices/');
     else if (name === 'create-payment') r = await P('/payments/', { invoice_id: v('pay-invoice'), provider: v('pay-provider') });
-    else if (name === 'confirm-payment') r = await PA(`/payments/${v('confirm-id')}/confirm`);
+    else if (name === 'confirm-payment') r = await PA(`/admin/payments/${v('confirm-id')}/confirm`);
     else if (name === 'get-sub')     r = await G('/subscriptions/me');
 
     if (r) {
