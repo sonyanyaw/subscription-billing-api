@@ -5,6 +5,7 @@ from sqlalchemy import select
 from httpx import AsyncClient, ASGITransport
 
 from app.db.models.plan import Plan
+from app.db.models.plan_price import PlanPrice
 from app.db.models.user import User
 from app.db.models.enums import UserRole
 from app.main import app
@@ -25,6 +26,7 @@ async def engine():
     )
 
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     yield engine
@@ -53,11 +55,29 @@ async def db_session(engine):
 async def seeded_plans(db_session):
 
     plans = [
-        Plan(name="Free",       price=0.0,  currency="USD", api_limit= 1000, is_active=True),
-        Plan(name="Pro",        price=29.99, currency="USD", api_limit= 1000, is_active=True),
-        Plan(name="Enterprise", price=99.99, currency="USD", api_limit= 1000, is_active=True),
+        Plan(
+            name="Free", api_limit=1000, is_active=True,
+            prices=[
+                PlanPrice(currency="USD", amount=0.0),
+                PlanPrice(currency="RUB", amount=0.0),
+            ],
+        ),
+        Plan(
+            name="Pro", api_limit=1000, is_active=True,
+            prices=[
+                PlanPrice(currency="USD", amount=29.99),
+                PlanPrice(currency="RUB", amount=2990.0),
+            ],
+        ),
+        Plan(
+            name="Enterprise", api_limit=1000, is_active=True,
+            prices=[
+                PlanPrice(currency="USD", amount=99.99),
+                PlanPrice(currency="RUB", amount=9990.0),
+            ],
+        ),
     ]
-    
+
     db_session.add_all(plans)
     await db_session.commit()
     return plans

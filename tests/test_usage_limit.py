@@ -20,7 +20,7 @@ async def limited_subscription_headers(client, db_session):
     result = await db_session.execute(select(User).where(User.email == creds["email"]))
     user = result.scalar_one()
 
-    plan = Plan(name="Nano", price=0.0, currency="USD", api_limit=1, is_active=True)
+    plan = Plan(name="Nano", api_limit=1, is_active=True)
     db_session.add(plan)
     await db_session.flush()
 
@@ -28,6 +28,7 @@ async def limited_subscription_headers(client, db_session):
     sub = Subscription(
         user_id=user.id,
         plan_id=plan.id,
+        currency="USD",
         status=SubscriptionStatus.active,
         current_period_start=now,
         current_period_end=now + timedelta(days=30),
