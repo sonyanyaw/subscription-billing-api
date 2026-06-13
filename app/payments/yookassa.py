@@ -16,14 +16,14 @@ class YooKassaProvider(PaymentProviderBase):
     async def create_payment(self, invoice) -> dict:
         # Deterministic idempotency key - same invoice always maps to the same key,
         # so retrying create_payment for the same invoice won't create duplicate charges.
-        idempotency_key = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"invoice-{invoice.id}-RUB"))
+        idempotency_key = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"invoice-{invoice.id}-{invoice.currency}"))
 
         payment = await asyncio.to_thread(
             YooKassaPayment.create,
             {
                 "amount": {
                     "value": f"{invoice.amount:.2f}",
-                    "currency": "RUB",
+                    "currency": invoice.currency.upper(),
                 },
                 "confirmation": {
                     "type": "redirect",
