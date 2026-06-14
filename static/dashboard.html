@@ -109,7 +109,7 @@
   tr:last-child td { border-bottom:none; }
   tbody tr { transition:background 0.1s; cursor:pointer; }
   tbody tr:hover { background:rgba(255,255,255,0.025); }
-  .id-cell { font-size:10px; color:var(--muted); font-family:'DM Mono',monospace; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .id-cell { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   .badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; border-radius:4px; font-family:'DM Mono',monospace; font-weight:500; letter-spacing:0.3px; white-space:nowrap; }
   .badge::before { content:''; width:5px; height:5px; border-radius:50%; flex-shrink:0; }
@@ -685,9 +685,9 @@ function renderDashboard() {
       <tr>
         <td class="id-cell" title="${p.id}">${short(p.id)}</td>
         <td class="id-cell" title="${p.invoice_id}">${short(p.invoice_id)}</td>
-        <td style="font-size:11px;color:var(--muted)">${p.provider||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${p.provider||'—'}</td>
         <td>${mkbadge(p.status)}</td>
-        <td style="color:var(--muted);font-size:11px">${fmtDate(p.created_at)}</td>
+        <td style="color:var(--muted);font-size:12px">${fmtDate(p.created_at)}</td>
       </tr>`).join('')}
     </tbody></table>` :
     '<div class="empty-state"><div class="empty-icon">◆</div>No payments yet</div>';
@@ -820,7 +820,7 @@ function renderInvoices(invs) {
   tb.innerHTML = invs.map(i=>`<tr>
     <td class="id-cell" title="${i.id}">${short(i.id)}</td>
     <td class="id-cell" title="${i.subscription_id}">${short(i.subscription_id)}</td>
-    <td class="amount ${i.status==='paid'?'amount-positive':i.status==='failed'?'amount-negative':''}">${fmtAmt(i.amount)}</td>
+    <td class="amount ${i.status==='paid'?'amount-positive':i.status==='failed'?'amount-negative':''}">${fmtAmt(i.amount, i.currency)}</td>
     <td style="font-size:11px;color:var(--muted)">${(i.currency||'USD').toUpperCase()}</td>
     <td>${mkbadge(i.status)}</td>
     <td style="color:var(--muted);font-size:11px">${fmtDate(i.due_date)}</td>
@@ -856,7 +856,7 @@ async function executeCancelSub() {
   const id = pendingCancelSubId;
   closeModalForce();
   try {
-    await apiFetch(`/admin/subscriptions/${id}/cancel`, { method: 'POST' });
+    await apiFetch(`/admin/subscriptions/${id}/cancel?immediate=true`, { method: 'POST' });
     addWebhookEntry('subscription.canceled', id, 'succeeded');
     showToast('Subscription canceled', 'ok');
     await loadSubscriptions();
@@ -1004,15 +1004,22 @@ function mkbadge(status) {
   return `<span class="badge badge-${s}">${s}</span>`;
 }
 function short(id) {
-  if (!id) return '—';
-  const s = String(id);
-  return s.length > 12 ? s.slice(0,8) + '…' : s;
+  // Returns the full ID — the .id-cell CSS truncates with an ellipsis only
+  // when the column is too narrow to show it in full.
+  return id ? String(id) : '—';
 }
 function fmtDate(d) {
   if (!d) return '—';
   try { return new Date(d).toISOString().split('T')[0]; } catch { return String(d); }
 }
-function fmtAmt(a) { return a == null ? '—' : '$' + Number(a).toFixed(2); }
+const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', RUB: '₽' };
+function fmtAmt(a, currency) {
+  if (a == null) return '—';
+  const cur = (currency || 'USD').toUpperCase();
+  const sym = CURRENCY_SYMBOLS[cur];
+  const n = Number(a).toFixed(2);
+  return sym ? sym + n : n + ' ' + cur;
+}
 function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function v(id) { return (document.getElementById(id)||{}).value || ''; }
 
