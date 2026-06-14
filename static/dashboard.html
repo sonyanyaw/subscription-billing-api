@@ -80,8 +80,9 @@
   @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 
   .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
-  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; position:relative; overflow:hidden; transition:border-color 0.2s; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; position:relative; overflow:hidden; transition:border-color 0.2s,transform 0.1s; cursor:pointer; }
   .stat-card:hover { border-color:var(--border2); }
+  .stat-card:active { transform:scale(0.99); }
   .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
   .stat-card.green::before { background:var(--accent); }
   .stat-card.red::before { background:var(--accent2); }
@@ -254,10 +255,10 @@
       <!-- DASHBOARD -->
       <div class="tab-panel active" id="tab-dashboard">
         <div class="stats-row">
-          <div class="stat-card green"><div class="stat-label">Active Subscriptions</div><div class="stat-value" id="stat-active">—</div><div class="stat-delta" id="stat-active-sub">—</div></div>
-          <div class="stat-card red"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed">—</div><div class="stat-delta" id="stat-failed-sub">—</div></div>
-          <div class="stat-card yellow"><div class="stat-label">Open Invoices</div><div class="stat-value" id="stat-open">—</div><div class="stat-delta" id="stat-open-sub">—</div></div>
-          <div class="stat-card blue"><div class="stat-label">Total Subscriptions</div><div class="stat-value" id="stat-total">—</div><div class="stat-delta" id="stat-total-sub">—</div></div>
+          <div class="stat-card green" onclick="showFiltered('subscriptions',2,'subs','sub-status-filter','active')"><div class="stat-label">Active Subscriptions</div><div class="stat-value" id="stat-active">—</div><div class="stat-delta" id="stat-active-sub">—</div></div>
+          <div class="stat-card red" onclick="showFiltered('payments',4,'payments','payment-status-filter','failed')"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed">—</div><div class="stat-delta" id="stat-failed-sub">—</div></div>
+          <div class="stat-card yellow" onclick="showFiltered('invoices',3,'invoices','invoice-status-filter','open')"><div class="stat-label">Open Invoices</div><div class="stat-value" id="stat-open">—</div><div class="stat-delta" id="stat-open-sub">—</div></div>
+          <div class="stat-card blue" onclick="showFiltered('subscriptions',2,'subs','sub-status-filter','')"><div class="stat-label">Total Subscriptions</div><div class="stat-value" id="stat-total">—</div><div class="stat-delta" id="stat-total-sub">—</div></div>
         </div>
         <div class="grid-2">
           <div>
@@ -1032,6 +1033,14 @@ function showTab(name, el) {
   // The Webhooks tab has no Refresh button (it shows Simulate), so pull fresh
   // persisted events from the backend whenever the tab is opened.
   if (name === 'webhooks' && jwtToken) loadWebhooks();
+}
+
+// Open a tab and pre-apply a status filter — used by the clickable dashboard cards.
+function showFiltered(tab, navIdx, view, selectId, status) {
+  showTab(tab, document.querySelectorAll('.nav-item')[navIdx]);
+  const sel = document.getElementById(selectId);
+  if (sel) sel.value = status;
+  setFilter(view, 'status', status);
 }
 
 function handleTopbarAction() {
