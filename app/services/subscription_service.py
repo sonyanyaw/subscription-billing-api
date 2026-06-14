@@ -151,10 +151,20 @@ class SubscriptionService:
         if not subscription:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
-        if subscription.status != SubscriptionStatus.active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subscription is not active")
+        cancelable = {
+            SubscriptionStatus.active,
+            SubscriptionStatus.past_due,
+            SubscriptionStatus.incomplete,
+        }
+        if subscription.status not in cancelable:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Subscription is already canceled or expired",
+            )
 
-        if immediate:
+        # An incomplete subscription never started a paid period, so there is
+        # nothing to wait for - cancel it right away regardless of the flag.
+        if immediate or subscription.status == SubscriptionStatus.incomplete:
             subscription.status = SubscriptionStatus.canceled
             subscription.canceled_at = utcnow()
         else:
