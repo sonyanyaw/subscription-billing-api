@@ -98,7 +98,7 @@
   .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .section-title { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
   .section-actions { display:flex; gap:8px; align-items:center; }
-  .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:24px; }
+  .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow-x:auto; margin-bottom:24px; }
   table { width:100%; border-collapse:collapse; }
   thead tr { border-bottom:1px solid var(--border); }
   th { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); padding:12px 16px; text-align:left; font-weight:400; background:var(--surface2); }
@@ -124,6 +124,8 @@
   .badge-failed { background:rgba(255,107,107,0.1); color:var(--accent2); } .badge-failed::before { background:var(--accent2); }
   .badge-pending { background:rgba(255,201,71,0.1); color:var(--accent3); } .badge-pending::before { background:var(--accent3); }
   .badge-succeeded { background:rgba(79,255,176,0.1); color:var(--accent); } .badge-succeeded::before { background:var(--accent); }
+  .badge-received { background:rgba(77,159,255,0.1); color:var(--blue); } .badge-received::before { background:var(--blue); }
+  .badge-processed { background:rgba(79,255,176,0.1); color:var(--accent); } .badge-processed::before { background:var(--accent); }
 
   .input { font-family:'DM Mono',monospace; font-size:12px; background:var(--bg); border:1px solid var(--border2); color:var(--text); padding:7px 12px; border-radius:5px; outline:none; transition:border-color 0.15s; }
   .input:focus { border-color:var(--accent); }
@@ -165,6 +167,7 @@
   .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
 
   .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .grid-2 > * { min-width:0; }
   .amount { font-variant-numeric:tabular-nums; }
   .amount-positive { color:var(--accent); }
   .amount-negative { color:var(--accent2); }
@@ -381,7 +384,8 @@
         <div class="section-header">
           <div class="section-title">Webhook Log</div>
           <div class="section-actions">
-            <button class="btn" onclick="clearWebhooks()">Clear log</button>
+            <button class="btn" onclick="loadWebhooks()">↻ Reload</button>
+            <button class="btn" onclick="clearWebhooks()">Clear local</button>
             <button class="btn btn-primary" onclick="openModal('simulate-webhook')">⚡ Simulate event</button>
           </div>
         </div>
@@ -496,7 +500,8 @@
 // ═══ STATE ════════════════════════════════════════════
 let apiBase = 'http://localhost:8000';
 let jwtToken = '';
-let webhookLog = [];
+let webhookLog = [];        // local entries (simulate + in-dashboard actions), persisted in localStorage
+let dbWebhooks = [];         // real webhook events fetched from /admin/webhooks/
 let allUsers = [], allInvoices = [], allSubs = [], allPayments = [];
 let pendingCancelSubId = null;
 
@@ -605,8 +610,18 @@ function toArray(data) {
 
 // ═══ DATA LOADING ════════════════════════════════════
 async function loadAllData() {
-  await Promise.all([loadSubscriptions(), loadInvoices(), loadPayments(), loadUsers()]);
+  await Promise.all([loadSubscriptions(), loadInvoices(), loadPayments(), loadUsers(), loadWebhooks()]);
   renderDashboard();
+}
+
+async function loadWebhooks() {
+  try {
+    const data = await apiFetch('/admin/webhooks/?limit=200');
+    dbWebhooks = toArray(data);
+  } catch {
+    dbWebhooks = [];
+  }
+  renderWebhooks();
 }
 
 async function loadUsers() {
@@ -660,6 +675,7 @@ function refreshCurrentTab() {
   else if (t === 'Subscriptions') loadSubscriptions();
   else if (t === 'Invoices') loadInvoices();
   else if (t === 'Payments') loadPayments();
+  else if (t === 'Webhooks') loadWebhooks();
 }
 
 // ═══ DASHBOARD ════════════════════════════════════════
@@ -683,8 +699,8 @@ function renderDashboard() {
     <table><thead><tr><th>ID</th><th>Invoice</th><th>Provider</th><th>Status</th><th>Created</th></tr></thead>
     <tbody>${recent.map(p=>`
       <tr>
-        <td class="id-cell" title="${p.id}">${short(p.id)}</td>
-        <td class="id-cell" title="${p.invoice_id}">${short(p.invoice_id)}</td>
+        <td class="id-cell" title="${p.id}">${shortId(p.id)}</td>
+        <td class="id-cell" title="${p.invoice_id}">${shortId(p.invoice_id)}</td>
         <td style="font-size:12px;color:var(--muted)">${p.provider||'—'}</td>
         <td>${mkbadge(p.status)}</td>
         <td style="color:var(--muted);font-size:12px">${fmtDate(p.created_at)}</td>
@@ -692,7 +708,7 @@ function renderDashboard() {
     </tbody></table>` :
     '<div class="empty-state"><div class="empty-icon">◆</div>No payments yet</div>';
 
-  const recentWH = webhookLog.slice(0, 5);
+  const recentWH = allWebhookEntries().slice(0, 5);
   document.getElementById('dash-webhook-table').innerHTML = recentWH.length ? `<div>
     ${recentWH.map(w=>`
       <div class="log-entry">
@@ -881,19 +897,51 @@ async function confirmPayment(id) {
 }
 
 // ═══ WEBHOOKS ════════════════════════════════════════
+function fmtDateTime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return String(d);
+  const p = n => String(n).padStart(2,'0');
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
+}
+
+// Merge persisted webhook events (DB) with local simulate/action entries, newest first.
+function allWebhookEntries() {
+  const db = dbWebhooks.map(e => ({
+    ts: Date.parse(e.created_at) || 0,
+    time: fmtDateTime(e.created_at),
+    event: e.event_type,
+    status: e.status,
+    resource: e.provider_payment_id || '—',
+    payload: typeof e.payload === 'string' ? e.payload : JSON.stringify(e.payload || {}, null, 2),
+    source: 'db',
+  }));
+  const local = webhookLog.map(w => ({
+    ts: Date.parse(w.time) || 0,
+    time: w.time,
+    event: w.event,
+    status: w.status,
+    resource: w.resource,
+    payload: w.payload,
+    source: 'local',
+  }));
+  return [...db, ...local].sort((a, b) => b.ts - a.ts);
+}
+
 function renderWebhooks() {
   const c = document.getElementById('webhook-entries');
-  if (!webhookLog.length) { c.innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div>No webhook events yet</div>'; return; }
-  c.innerHTML = webhookLog.map(w=>`
+  const entries = allWebhookEntries();
+  if (!entries.length) { c.innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div>No webhook events yet</div>'; return; }
+  c.innerHTML = entries.map(w=>`
     <div class="log-entry" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
       <span class="log-time">${w.time}</span>
-      <div style="flex:1"><div class="log-event">${w.event}</div><div class="log-payload">${w.resource}</div></div>
+      <div style="flex:1"><div class="log-event">${w.event} <span style="color:var(--muted);font-size:9px;letter-spacing:1px">${w.source==='db'?'DB':'LOCAL'}</span></div><div class="log-payload">${w.resource}</div></div>
       <span>${mkbadge(w.status)}</span>
     </div>
     <div style="display:none;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border)">
       <pre style="font-size:10px;color:var(--muted);line-height:1.6">${w.payload}</pre>
     </div>`).join('');
-  const fc = webhookLog.filter(w=>w.status==='failed').length;
+  const fc = entries.filter(w=>w.status==='failed').length;
   const b = document.getElementById('webhook-badge');
   b.textContent = fc; b.style.display = fc ? '' : 'none';
 }
@@ -981,6 +1029,9 @@ function showTab(name, el) {
   const btn = document.getElementById('topbar-action');
   btn.textContent = name === 'webhooks' ? '⚡ Simulate' : '⟳ Refresh';
   btn.style.display = name === 'api' ? 'none' : '';
+  // The Webhooks tab has no Refresh button (it shows Simulate), so pull fresh
+  // persisted events from the backend whenever the tab is opened.
+  if (name === 'webhooks' && jwtToken) loadWebhooks();
 }
 
 function handleTopbarAction() {
@@ -1007,6 +1058,13 @@ function short(id) {
   // Returns the full ID — the .id-cell CSS truncates with an ellipsis only
   // when the column is too narrow to show it in full.
   return id ? String(id) : '—';
+}
+function shortId(id) {
+  // Always-truncated form for compact widgets (e.g. dashboard summary) where
+  // there isn't room for a full UUID.
+  if (!id) return '—';
+  const s = String(id);
+  return s.length > 12 ? s.slice(0,8) + '…' : s;
 }
 function fmtDate(d) {
   if (!d) return '—';
