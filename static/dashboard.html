@@ -100,6 +100,9 @@
   .section-title { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
   .section-actions { display:flex; gap:8px; align-items:center; }
   .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow-x:auto; margin-bottom:24px; }
+  .pager { display:flex; gap:10px; align-items:center; justify-content:flex-end; margin-top:-12px; margin-bottom:24px; }
+  .pager:empty { display:none; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
   table { width:100%; border-collapse:collapse; }
   thead tr { border-bottom:1px solid var(--border); }
   th { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); padding:12px 16px; text-align:left; font-weight:400; background:var(--surface2); }
@@ -291,6 +294,7 @@
           </tr></thead>
           <tbody id="users-tbody"><tr><td colspan="5"><div class="empty-state"><div class="empty-icon">◎</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
+        <div class="pager" id="pager-users"></div>
       </div>
 
       <!-- SUBSCRIPTIONS -->
@@ -319,6 +323,7 @@
           </tr></thead>
           <tbody id="subs-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">↻</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
+        <div class="pager" id="pager-subs"></div>
       </div>
 
       <!-- INVOICES -->
@@ -346,6 +351,7 @@
           </tr></thead>
           <tbody id="invoices-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◻</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
+        <div class="pager" id="pager-invoices"></div>
       </div>
 
       <!-- PAYMENTS -->
@@ -378,6 +384,7 @@
           </tr></thead>
           <tbody id="payments-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◆</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
+        <div class="pager" id="pager-payments"></div>
       </div>
 
       <!-- WEBHOOKS -->
@@ -504,6 +511,16 @@ let jwtToken = '';
 let webhookLog = [];        // local entries (simulate + in-dashboard actions), persisted in localStorage
 let dbWebhooks = [];         // real webhook events fetched from /admin/webhooks/
 let allUsers = [], allInvoices = [], allSubs = [], allPayments = [];
+
+// Server-side pagination state per table. Filter/sort still apply client-side
+// to the current page.
+const PAGE_SIZE = 50;
+const pager = {
+  users:    { offset: 0, hasNext: false },
+  subs:     { offset: 0, hasNext: false },
+  invoices: { offset: 0, hasNext: false },
+  payments: { offset: 0, hasNext: false },
+};
 let pendingCancelSubId = null;
 
 // On load — restore session if token exists
@@ -625,48 +642,83 @@ async function loadWebhooks() {
   renderWebhooks();
 }
 
+function pageQuery(name) {
+  return `?limit=${PAGE_SIZE}&offset=${pager[name].offset}`;
+}
+
 async function loadUsers() {
   try {
-    const data = await apiFetch('/admin/subscriptions/subscribers');
+    const data = await apiFetch('/admin/subscriptions/subscribers' + pageQuery('users'));
     allUsers = toArray(data);
+    pager.users.hasNext = allUsers.length === PAGE_SIZE;
     applyView('users');
   } catch {
     // endpoint may not exist yet
     renderUsers([]);
   }
+  renderPager('users');
 }
 
 async function loadSubscriptions() {
   try {
-    const data = await apiFetch('/admin/subscriptions/');
+    const data = await apiFetch('/admin/subscriptions/' + pageQuery('subs'));
     allSubs = toArray(data);
+    pager.subs.hasNext = allSubs.length === PAGE_SIZE;
     applyView('subs');
   } catch(e) {
     showToast('Subscriptions: ' + e.message, 'error');
     renderSubscriptions([]);
   }
+  renderPager('subs');
 }
 
 async function loadInvoices() {
   try {
-    const data = await apiFetch('/admin/invoices/');
+    const data = await apiFetch('/admin/invoices/' + pageQuery('invoices'));
     allInvoices = toArray(data);
+    pager.invoices.hasNext = allInvoices.length === PAGE_SIZE;
     applyView('invoices');
   } catch(e) {
     showToast('Invoices: ' + e.message, 'error');
     renderInvoices([]);
   }
+  renderPager('invoices');
 }
 
 async function loadPayments() {
   try {
-    const data = await apiFetch('/admin/payments/');
+    const data = await apiFetch('/admin/payments/' + pageQuery('payments'));
     allPayments = toArray(data);
+    pager.payments.hasNext = allPayments.length === PAGE_SIZE;
     applyView('payments');
   } catch(e) {
     showToast('Payments: ' + e.message, 'error');
     renderPayments([]);
   }
+  renderPager('payments');
+}
+
+const pagerLoaders = { users: loadUsers, subs: loadSubscriptions, invoices: loadInvoices, payments: loadPayments };
+
+function renderPager(name) {
+  const el = document.getElementById('pager-' + name);
+  if (!el) return;
+  const p = pager[name];
+  // Hide the pager entirely when there's only a single page.
+  if (p.offset === 0 && !p.hasNext) { el.innerHTML = ''; return; }
+  const page = Math.floor(p.offset / PAGE_SIZE) + 1;
+  el.innerHTML =
+    `<button class="btn" ${p.offset === 0 ? 'disabled' : ''} onclick="changePage('${name}',-1)">‹ Prev</button>` +
+    `<span style="font-size:11px;color:var(--muted)">Page ${page}</span>` +
+    `<button class="btn" ${p.hasNext ? '' : 'disabled'} onclick="changePage('${name}',1)">Next ›</button>`;
+}
+
+function changePage(name, dir) {
+  const p = pager[name];
+  const next = p.offset + dir * PAGE_SIZE;
+  if (next < 0) return;
+  p.offset = next;
+  pagerLoaders[name]();
 }
 
 function refreshCurrentTab() {
@@ -684,14 +736,23 @@ function renderDashboard() {
   const active = allSubs.filter(s => s.status === 'active').length;
   const failed = allPayments.filter(p => p.status === 'failed').length;
   const open = allInvoices.filter(i => i.status === 'open').length;
-  const pendingAmt = allInvoices.filter(i => i.status === 'open').reduce((s,i) => s + Number(i.amount||0), 0);
+
+  // Sum pending amounts per currency — mixing USD and RUB into one number is wrong.
+  const pendingByCur = {};
+  allInvoices.filter(i => i.status === 'open').forEach(i => {
+    const cur = (i.currency || 'USD').toUpperCase();
+    pendingByCur[cur] = (pendingByCur[cur] || 0) + Number(i.amount || 0);
+  });
+  const pendingText = Object.entries(pendingByCur)
+    .map(([cur, amt]) => fmtAmt(amt, cur))
+    .join(' + ') || fmtAmt(0, 'USD');
 
   document.getElementById('stat-active').textContent = active;
   document.getElementById('stat-active-sub').textContent = allSubs.filter(s=>s.status==='incomplete').length + ' incomplete';
   document.getElementById('stat-failed').textContent = failed;
   document.getElementById('stat-failed-sub').textContent = allPayments.filter(p=>p.status==='pending').length + ' pending';
   document.getElementById('stat-open').textContent = open;
-  document.getElementById('stat-open-sub').textContent = '$' + pendingAmt.toFixed(2) + ' pending';
+  document.getElementById('stat-open-sub').textContent = pendingText + ' pending';
   document.getElementById('stat-total').textContent = allSubs.length;
   document.getElementById('stat-total-sub').textContent = allPayments.filter(p=>p.status==='succeeded').length + ' succeeded';
 
@@ -1030,9 +1091,9 @@ function showTab(name, el) {
   const btn = document.getElementById('topbar-action');
   btn.textContent = name === 'webhooks' ? '⚡ Simulate' : '⟳ Refresh';
   btn.style.display = name === 'api' ? 'none' : '';
-  // The Webhooks tab has no Refresh button (it shows Simulate), so pull fresh
-  // persisted events from the backend whenever the tab is opened.
-  if (name === 'webhooks' && jwtToken) loadWebhooks();
+  // Pull fresh data whenever a tab is opened so it never shows a stale cache
+  // from login time (the Webhooks tab in particular has no Refresh button).
+  if (jwtToken) refreshCurrentTab();
 }
 
 // Open a tab and pre-apply a status filter — used by the clickable dashboard cards.
