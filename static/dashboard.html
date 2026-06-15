@@ -302,6 +302,7 @@
         <div class="section-header">
           <div class="section-title">Subscriptions</div>
           <div class="section-actions">
+            <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('subs','text',this.value)">
             <select class="form-select" id="sub-status-filter" onchange="setFilter('subs','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="incomplete">Incomplete</option>
@@ -331,6 +332,7 @@
         <div class="section-header">
           <div class="section-title">Invoices</div>
           <div class="section-actions">
+            <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('invoices','text',this.value)">
             <select class="form-select" id="invoice-status-filter" onchange="setFilter('invoices','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
@@ -359,6 +361,7 @@
         <div class="section-header">
           <div class="section-title">Payment History</div>
           <div class="section-actions">
+            <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('payments','text',this.value)">
             <select class="form-select" id="payment-status-filter" onchange="setFilter('payments','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="pending">Pending</option>
@@ -810,26 +813,34 @@ const views = {
   },
   subs: {
     panel: 'tab-subscriptions', data: () => allSubs, render: renderSubscriptions,
-    sort: null, dir: 1, status: '',
+    sort: null, dir: 1, status: '', text: '',
     cols: { id: r => r.id, user: r => r.user_id, plan: r => r.plan?.name || r.plan_id || '',
             status: r => r.status, period: r => r.current_period_end },
-    matches: (r, st) => !st.status || r.status === st.status,
+    matches: (r, st) => (!st.status || r.status === st.status) &&
+      (!st.text || matchesText(st.text, r.id, r.user_id, r.plan?.name, r.plan_id)),
   },
   invoices: {
     panel: 'tab-invoices', data: () => allInvoices, render: renderInvoices,
-    sort: null, dir: 1, status: '',
+    sort: null, dir: 1, status: '', text: '',
     cols: { id: r => r.id, sub: r => r.subscription_id, amount: r => Number(r.amount || 0),
             currency: r => (r.currency || '').toUpperCase(), status: r => r.status, due: r => r.due_date },
-    matches: (r, st) => !st.status || r.status === st.status,
+    matches: (r, st) => (!st.status || r.status === st.status) &&
+      (!st.text || matchesText(st.text, r.id, r.subscription_id)),
   },
   payments: {
     panel: 'tab-payments', data: () => allPayments, render: renderPayments,
-    sort: null, dir: 1, status: '', provider: '',
+    sort: null, dir: 1, status: '', provider: '', text: '',
     cols: { id: r => r.id, invoice: r => r.invoice_id, provider: r => r.provider || '',
             status: r => r.status, created: r => r.created_at },
-    matches: (r, st) => (!st.status || r.status === st.status) && (!st.provider || r.provider === st.provider),
+    matches: (r, st) => (!st.status || r.status === st.status) && (!st.provider || r.provider === st.provider) &&
+      (!st.text || matchesText(st.text, r.id, r.invoice_id, r.provider)),
   },
 };
+
+// Case-insensitive substring match of `q` against any of the given fields.
+function matchesText(q, ...fields) {
+  return fields.some(f => String(f || '').toLowerCase().includes(q));
+}
 
 function cmpValues(a, b) {
   if (a == null && b == null) return 0;
