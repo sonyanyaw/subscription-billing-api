@@ -228,6 +228,7 @@
       <div class="nav-item" onclick="showTab('subscriptions',this)"><span class="icon">↻</span> Subscriptions</div>
       <div class="nav-item" onclick="showTab('invoices',this)"><span class="icon">◻</span> Invoices</div>
       <div class="nav-item" onclick="showTab('payments',this)"><span class="icon">◆</span> Payments</div>
+      <div class="nav-item" onclick="showTab('plans',this)"><span class="icon">▣</span> Plans</div>
       <div class="nav-label">Dev Tools</div>
       <div class="nav-item" onclick="showTab('webhooks',this)">
         <span class="icon">⟳</span> Webhooks
@@ -269,7 +270,7 @@
             <div class="table-wrap" id="dash-payments-table"><div class="empty-state"><div class="empty-icon">◆</div>Loading…</div></div>
           </div>
           <div>
-            <div class="section-header"><div class="section-title">Webhook Activity</div><button class="btn" onclick="showTab('webhooks',document.querySelectorAll('.nav-item')[5])">View all →</button></div>
+            <div class="section-header"><div class="section-title">Webhook Activity</div><button class="btn" onclick="showTab('webhooks',document.querySelectorAll('.nav-item')[6])">View all →</button></div>
             <div class="table-wrap" id="dash-webhook-table"><div class="empty-state"><div class="empty-icon">⟳</div>No activity yet</div></div>
           </div>
         </div>
@@ -388,6 +389,22 @@
           <tbody id="payments-tbody"><tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◆</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
         </div>
         <div class="pager" id="pager-payments"></div>
+      </div>
+
+      <!-- PLANS -->
+      <div class="tab-panel" id="tab-plans">
+        <div class="section-header">
+          <div class="section-title">Plans</div>
+          <div class="section-actions">
+            <button class="btn btn-primary" onclick="openPlanForm()">+ New Plan</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>Name</th><th>API Limit</th><th>Prices</th><th>Active</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="plans-tbody"><tr><td colspan="5"><div class="empty-state"><div class="empty-icon">▣</div><span class="spinner"></span>Loading…</div></td></tr></tbody></table>
+        </div>
       </div>
 
       <!-- WEBHOOKS -->
@@ -511,6 +528,35 @@
     <div class="modal-title">Subscription details</div>
     <div id="sub-detail-body"></div>
   </div>
+
+  <div class="modal" id="modal-plan-form" style="display:none; width:460px">
+    <button class="modal-close" onclick="closeModalForce()">✕</button>
+    <div class="modal-title" id="plan-form-title">New Plan</div>
+    <input type="hidden" id="plan-form-id">
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="input form-input" id="plan-form-name" placeholder="e.g. Pro">
+    </div>
+    <div class="form-group">
+      <label class="form-label">API Limit</label>
+      <input class="input form-input" id="plan-form-limit" type="number" placeholder="10000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Price USD</label>
+      <input class="input form-input" id="plan-form-usd" type="number" step="0.01" placeholder="29.99">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Price RUB</label>
+      <input class="input form-input" id="plan-form-rub" type="number" step="0.01" placeholder="2990">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="plan-form-active" checked> Active</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalForce()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -519,7 +565,7 @@ let apiBase = 'http://localhost:8000';
 let jwtToken = '';
 let webhookLog = [];        // local entries (simulate + in-dashboard actions), persisted in localStorage
 let dbWebhooks = [];         // real webhook events fetched from /admin/webhooks/
-let allUsers = [], allInvoices = [], allSubs = [], allPayments = [];
+let allUsers = [], allInvoices = [], allSubs = [], allPayments = [], allPlans = [];
 
 // Server-side pagination state per table. Filter/sort still apply client-side
 // to the current page.
@@ -651,6 +697,97 @@ async function loadWebhooks() {
   renderWebhooks();
 }
 
+// ═══ PLANS ════════════════════════════════════════════
+async function loadPlans() {
+  try {
+    const data = await apiFetch('/admin/plans/');
+    allPlans = toArray(data);
+  } catch(e) {
+    showToast('Plans: ' + e.message, 'error');
+    allPlans = [];
+  }
+  renderPlans();
+}
+
+function renderPlans() {
+  const tb = document.getElementById('plans-tbody');
+  if (!allPlans.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">▣</div>No plans</div></td></tr>'; return; }
+  tb.innerHTML = allPlans.map(p => {
+    const prices = (p.prices || []).map(pr => fmtAmt(pr.amount, pr.currency)).join(' · ') || '—';
+    return `<tr>
+      <td style="font-size:12px">${esc(p.name)}</td>
+      <td style="font-size:12px;color:var(--muted)">${Number(p.api_limit).toLocaleString()}</td>
+      <td style="font-size:11px">${prices}</td>
+      <td>${mkbadge(p.is_active ? 'active' : 'canceled')}</td>
+      <td>
+        <button class="btn" style="font-size:10px;padding:4px 8px" onclick="openPlanForm('${p.id}')">Edit</button>
+        <button class="btn btn-danger" style="font-size:10px;padding:4px 8px" onclick="deletePlan('${p.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function planPrice(plan, cur) {
+  const pr = (plan.prices || []).find(x => (x.currency || '').toUpperCase() === cur);
+  return pr ? pr.amount : '';
+}
+
+function openPlanForm(planId) {
+  const plan = planId ? allPlans.find(p => String(p.id) === String(planId)) : null;
+  document.getElementById('plan-form-title').textContent = plan ? 'Edit Plan' : 'New Plan';
+  document.getElementById('plan-form-id').value = plan ? plan.id : '';
+  document.getElementById('plan-form-name').value = plan ? plan.name : '';
+  document.getElementById('plan-form-limit').value = plan ? plan.api_limit : '';
+  document.getElementById('plan-form-usd').value = plan ? planPrice(plan, 'USD') : '';
+  document.getElementById('plan-form-rub').value = plan ? planPrice(plan, 'RUB') : '';
+  document.getElementById('plan-form-active').checked = plan ? plan.is_active !== false : true;
+  openModal('plan-form');
+}
+
+async function savePlan() {
+  const id = document.getElementById('plan-form-id').value;
+  const name = document.getElementById('plan-form-name').value.trim();
+  const limit = parseInt(document.getElementById('plan-form-limit').value, 10);
+  const usd = document.getElementById('plan-form-usd').value;
+  const rub = document.getElementById('plan-form-rub').value;
+  const active = document.getElementById('plan-form-active').checked;
+
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!Number.isFinite(limit)) { showToast('API limit must be a number', 'error'); return; }
+
+  const prices = [];
+  if (usd !== '') prices.push({ currency: 'USD', amount: Number(usd) });
+  if (rub !== '') prices.push({ currency: 'RUB', amount: Number(rub) });
+  if (!id && !prices.length) { showToast('Set at least one price', 'error'); return; }
+
+  try {
+    if (id) {
+      const body = { name, api_limit: limit, is_active: active };
+      if (prices.length) body.prices = prices;
+      await apiFetch(`/admin/plans/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      showToast('Plan updated ✓', 'ok');
+    } else {
+      await apiFetch('/admin/plans/', { method: 'POST', body: JSON.stringify({ name, api_limit: limit, is_active: active, prices }) });
+      showToast('Plan created ✓', 'ok');
+    }
+    closeModalForce();
+    await loadPlans();
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function deletePlan(id) {
+  if (!confirm('Delete this plan? This cannot be undone.')) return;
+  try {
+    await apiFetch(`/admin/plans/${id}`, { method: 'DELETE' });
+    showToast('Plan deleted ✓', 'ok');
+    await loadPlans();
+  } catch(e) {
+    showToast('Delete failed: ' + e.message, 'error');
+  }
+}
+
 function pageQuery(name) {
   return `?limit=${PAGE_SIZE}&offset=${pager[name].offset}`;
 }
@@ -737,6 +874,7 @@ function refreshCurrentTab() {
   else if (t === 'Subscriptions') loadSubscriptions();
   else if (t === 'Invoices') loadInvoices();
   else if (t === 'Payments') loadPayments();
+  else if (t === 'Plans') loadPlans();
   else if (t === 'Webhooks') loadWebhooks();
 }
 
@@ -1144,7 +1282,7 @@ async function runEndpoint(name) {
 }
 
 // ═══ NAV ══════════════════════════════════════════════
-const tabTitles = { dashboard:'Dashboard', subscribers:'Subscribers', subscriptions:'Subscriptions', invoices:'Invoices', payments:'Payments', webhooks:'Webhooks', api:'API Tester' };
+const tabTitles = { dashboard:'Dashboard', subscribers:'Subscribers', subscriptions:'Subscriptions', invoices:'Invoices', payments:'Payments', plans:'Plans', webhooks:'Webhooks', api:'API Tester' };
 
 function showTab(name, el) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));

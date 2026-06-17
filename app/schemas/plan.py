@@ -31,6 +31,7 @@ class PlanUpdate(BaseModel):
     name: str | None = None
     api_limit: int | None = None
     is_active: bool | None = None
+    prices: list[PlanPriceCreate] | None = None
 
 
 class PlanSummary(PlanBase):
