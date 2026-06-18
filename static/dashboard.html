@@ -282,6 +282,7 @@
           <div class="section-title">All Subscribers</div>
           <div class="section-actions">
             <input class="input" placeholder="Search by email…" style="width:200px" id="user-search" oninput="setFilter('users','text',this.value)">
+            <button class="btn" onclick="exportCSV('users')">⬇ CSV</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -304,6 +305,7 @@
           <div class="section-title">Subscriptions</div>
           <div class="section-actions">
             <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('subs','text',this.value)">
+            <button class="btn" onclick="exportCSV('subs')">⬇ CSV</button>
             <select class="form-select" id="sub-status-filter" onchange="setFilter('subs','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="incomplete">Incomplete</option>
@@ -334,6 +336,7 @@
           <div class="section-title">Invoices</div>
           <div class="section-actions">
             <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('invoices','text',this.value)">
+            <button class="btn" onclick="exportCSV('invoices')">⬇ CSV</button>
             <select class="form-select" id="invoice-status-filter" onchange="setFilter('invoices','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
@@ -363,6 +366,7 @@
           <div class="section-title">Payment History</div>
           <div class="section-actions">
             <input class="input" placeholder="Search by ID…" style="width:180px" oninput="setFilter('payments','text',this.value)">
+            <button class="btn" onclick="exportCSV('payments')">⬇ CSV</button>
             <select class="form-select" id="payment-status-filter" onchange="setFilter('payments','status',this.value)" style="width:140px">
               <option value="">All statuses</option>
               <option value="pending">Pending</option>
@@ -996,14 +1000,19 @@ function cmpValues(a, b) {
   return String(a).localeCompare(String(b));
 }
 
-function applyView(name) {
+// Filtered + sorted rows for a table (without rendering) — shared by render and CSV export.
+function viewRows(name) {
   const v = views[name];
   let rows = v.data().filter(r => v.matches(r, v));
   if (v.sort && v.cols[v.sort]) {
     const acc = v.cols[v.sort];
     rows = [...rows].sort((a, b) => cmpValues(acc(a), acc(b)) * v.dir);
   }
-  v.render(rows);
+  return rows;
+}
+
+function applyView(name) {
+  views[name].render(viewRows(name));
   updateSortIndicators(name);
 }
 
@@ -1031,6 +1040,54 @@ function updateSortIndicators(name) {
 
 // Backwards-compatible thin wrappers.
 function filterUsers(q) { setFilter('users', 'text', q); }
+
+// ═══ CSV EXPORT ══════════════════════════════════════
+// Columns exported per table (header name + value accessor).
+const CSV_COLS = {
+  users: [
+    ['ID', r => r.id], ['Email', r => r.user?.email || ''], ['Role', r => r.role || 'user'],
+    ['Active', r => r.is_active !== false ? 'yes' : 'no'], ['Created', r => fmtDateTime(r.created_at)], ['Plan', r => r.plan?.name || ''],
+  ],
+  subs: [
+    ['ID', r => r.id], ['User ID', r => r.user_id], ['Plan', r => r.plan?.name || r.plan_id || ''],
+    ['Currency', r => (r.currency || '').toUpperCase()], ['Status', r => r.status], ['Period End', r => fmtDateTime(r.current_period_end)],
+  ],
+  invoices: [
+    ['ID', r => r.id], ['Subscription ID', r => r.subscription_id], ['Amount', r => r.amount],
+    ['Currency', r => (r.currency || '').toUpperCase()], ['Status', r => r.status], ['Due Date', r => fmtDateTime(r.due_date)],
+  ],
+  payments: [
+    ['ID', r => r.id], ['Invoice ID', r => r.invoice_id], ['Provider', r => r.provider || ''],
+    ['Status', r => r.status], ['Created', r => fmtDateTime(r.created_at)],
+  ],
+};
+
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCSV(name) {
+  const cols = CSV_COLS[name];
+  const rows = viewRows(name);
+  if (!rows.length) { showToast('Nothing to export', 'error'); return; }
+  const header = cols.map(c => c[0]).join(',');
+  const lines = rows.map(r => cols.map(c => csvEscape(c[1](r))).join(','));
+  // BOM keeps UTF-8 intact (currency symbols, Cyrillic). The 'sep=,' hint tells
+  // Excel to split on commas regardless of the OS list-separator locale
+  // (RU/EU Excel defaults to ';', which otherwise dumps each row into one cell).
+  const csv = '﻿sep=,\r\n' + [header, ...lines].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'}`, 'ok');
+}
 
 function renderSubscriptions(subs) {
   const tb = document.getElementById('subs-tbody');
