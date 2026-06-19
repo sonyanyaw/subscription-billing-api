@@ -43,6 +43,9 @@ services:
     command: python scripts/seed_db.py
     volumes:
       - .:/app
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
     depends_on:
       db:
         condition: service_healthy
